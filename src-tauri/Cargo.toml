@@ -1,0 +1,17 @@
+[package]
+name = "novel-studio"
+version = "0.1.0"
+description = "Novel Studio - 소설 작가를 위한 올인원 집필 보조 플랫폼"
+authors = ["Novel Studio"]
+license = "MIT"
+repository = ""
+edition = "2021"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-shell = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"

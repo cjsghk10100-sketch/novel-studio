@@ -1,0 +1,54 @@
+{
+  "$schema": "https://raw.githubusercontent.com/nicegui/nicegui-tauri/main/src-tauri/.schema/tauri.conf.json",
+  "productName": "Novel Studio",
+  "version": "0.1.0",
+  "identifier": "com.novelstudio.app",
+  "build": {
+    "beforeDevCommand": "cd ../frontend && npm run dev",
+    "devUrl": "http://localhost:5173",
+    "beforeBuildCommand": "cd ../frontend && npm run build:client",
+    "frontendDist": "../frontend/dist/client"
+  },
+  "app": {
+    "title": "Novel Studio",
+    "windows": [
+      {
+        "title": "Novel Studio",
+        "width": 1440,
+        "height": 900,
+        "minWidth": 1024,
+        "minHeight": 640,
+        "resizable": true,
+        "fullscreen": false,
+        "decorations": true,
+        "center": true
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "resources": [],
+    "copyright": "",
+    "category": "Productivity",
+    "shortDescription": "소설 작가를 위한 올인원 집필 보조 플랫폼",
+    "longDescription": "세계관 설계, 구성 기획, 원고 집필, 정합성 검사를 하나의 도구에서 연결하는 소설 작가용 데스크톱 앱",
+    "macOS": {
+      "minimumSystemVersion": "10.15"
+    },
+    "windows": {
+      "wix": null,
+      "nsis": null
+    }
+  }
+}
