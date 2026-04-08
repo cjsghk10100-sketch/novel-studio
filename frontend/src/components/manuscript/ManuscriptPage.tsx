@@ -4,6 +4,7 @@ import { ManuscriptSidebar } from "./ManuscriptSidebar";
 import { ManuscriptEditor } from "./ManuscriptEditor";
 import { ManuscriptContextPanel } from "./ManuscriptContextPanel";
 import { EntityMentionDialog } from "./EntityMentionDialog";
+import { AgentAnalysisDialog } from "./AgentAnalysisDialog";
 
 export function ManuscriptPage() {
   const books = useNovelStore((s) => s.books);
@@ -15,6 +16,7 @@ export function ManuscriptPage() {
   const [selectedChapterId, setSelectedChapterId] = useState<string | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [entityMentionOpen, setEntityMentionOpen] = useState(false);
+  const [agentDialogOpen, setAgentDialogOpen] = useState(false);
 
   // Auto-select first book on mount
   useEffect(() => {
@@ -38,7 +40,7 @@ export function ManuscriptPage() {
         content: chapter.content + ` @${entityName}`,
       });
       addTextEntityReference({
-        manuscriptSceneId: selectedChapterId, // reusing field for chapter-level reference
+        manuscriptSceneId: selectedChapterId,
         entityType: entityType as "character" | "location" | "faction" | "item" | "event",
         entityId,
       });
@@ -70,6 +72,7 @@ export function ManuscriptPage() {
           isFullscreen={isFullscreen}
           onToggleFullscreen={() => setIsFullscreen((f) => !f)}
           onOpenEntityMention={() => setEntityMentionOpen(true)}
+          onOpenAgentDialog={() => setAgentDialogOpen(true)}
         />
       </div>
 
@@ -85,6 +88,13 @@ export function ManuscriptPage() {
         open={entityMentionOpen}
         onClose={() => setEntityMentionOpen(false)}
         onSelect={handleEntityMention}
+      />
+
+      {/* Agent analysis dialog */}
+      <AgentAnalysisDialog
+        open={agentDialogOpen}
+        onClose={() => setAgentDialogOpen(false)}
+        chapterId={selectedChapterId}
       />
     </div>
   );
