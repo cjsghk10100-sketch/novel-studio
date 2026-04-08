@@ -64,16 +64,19 @@ interface ManuscriptContextPanelProps {
 
 export function ManuscriptContextPanel({ sceneId }: ManuscriptContextPanelProps) {
   const manuscriptScenes = useNovelStore((s) => s.manuscriptScenes);
+  const manuscriptChapters = useNovelStore((s) => s.manuscriptChapters);
   const characters = useNovelStore((s) => s.characters);
   const locations = useNovelStore((s) => s.locations);
   const scenes = useNovelStore((s) => s.scenes);
   const plotPoints = useNovelStore((s) => s.plotPoints);
   const foreshadows = useNovelStore((s) => s.foreshadows);
-  const getReferencesForScene = useNovelStore((s) => s.getReferencesForScene);
-  const getProposalsForScene = useNovelStore((s) => s.getProposalsForScene);
   const getEntityById = useNovelStore((s) => s.getEntityById);
   const removeTextEntityReference = useNovelStore((s) => s.removeTextEntityReference);
   const updateExtractedProposal = useNovelStore((s) => s.updateExtractedProposal);
+
+  // 직접 슬라이스 구독 → 변경 시 리렌더링 보장
+  const textEntityReferences = useNovelStore((s) => s.textEntityReferences);
+  const extractedProposals = useNovelStore((s) => s.extractedProposals);
 
   // 위키 등록 액션
   const addCharacter = useNovelStore((s) => s.addCharacter);
@@ -85,9 +88,21 @@ export function ManuscriptContextPanel({ sceneId }: ManuscriptContextPanelProps)
 
   const [acceptedMsg, setAcceptedMsg] = useState<string | null>(null);
 
-  const msScene = sceneId ? manuscriptScenes[sceneId] : null;
-  const refs = useMemo(() => (sceneId ? getReferencesForScene(sceneId) : []), [sceneId, getReferencesForScene]);
-  const proposals = useMemo(() => (sceneId ? getProposalsForScene(sceneId) : []), [sceneId, getProposalsForScene]);
+  const msScene = sceneId ? (manuscriptScenes[sceneId] ?? null) : null;
+  const msChapter = sceneId ? (manuscriptChapters[sceneId] ?? null) : null;
+  const linkedBoardSceneId = msScene?.linkedBoardSceneId ?? msChapter?.linkedBoardSceneId ?? null;
+  const povCharacterId = msScene?.povCharacterId ?? msChapter?.povCharacterId ?? null;
+
+  // 슬라이스에서 직접 필터링 (리렌더링 보장)
+  const refs = useMemo(() => {
+    if (!sceneId) return [];
+    return Object.values(textEntityReferences).filter((r) => r.manuscriptSceneId === sceneId);
+  }, [sceneId, textEntityReferences]);
+
+  const proposals = useMemo(() => {
+    if (!sceneId) return [];
+    return Object.values(extractedProposals).filter((p) => p.manuscriptSceneId === sceneId);
+  }, [sceneId, extractedProposals]);
 
   const pendingCount = useMemo(() => proposals.filter((p) => p.status === "pending").length, [proposals]);
 
@@ -97,15 +112,14 @@ export function ManuscriptContextPanel({ sceneId }: ManuscriptContextPanelProps)
     return g;
   }, [refs]);
 
-  const boardScene = msScene?.linkedBoardSceneId ? scenes[msScene.linkedBoardSceneId] : null;
-  const linkedId = msScene?.linkedBoardSceneId;
+  const boardScene = linkedBoardSceneId ? scenes[linkedBoardSceneId] : null;
   const relatedPlotPoints = useMemo(
-    () => (linkedId ? Object.values(plotPoints).filter((pp) => pp.sceneId === linkedId) : []),
-    [plotPoints, linkedId],
+    () => (linkedBoardSceneId ? Object.values(plotPoints).filter((pp) => pp.sceneId === linkedBoardSceneId) : []),
+    [plotPoints, linkedBoardSceneId],
   );
   const relatedForeshadows = useMemo(
-    () => (linkedId ? Object.values(foreshadows).filter((f) => f.setupSceneId === linkedId || f.payoffSceneId === linkedId) : []),
-    [foreshadows, linkedId],
+    () => (linkedBoardSceneId ? Object.values(foreshadows).filter((f) => f.setupSceneId === linkedBoardSceneId || f.payoffSceneId === linkedBoardSceneId) : []),
+    [foreshadows, linkedBoardSceneId],
   );
 
   // Issues from consistency store
@@ -115,14 +129,14 @@ export function ManuscriptContextPanel({ sceneId }: ManuscriptContextPanelProps)
   const issues = useMemo(() => {
     if (!sceneId) return [];
     const byMs = listIssuesByScene(sceneId);
-    const byBoard = msScene?.linkedBoardSceneId ? listIssuesByScene(msScene.linkedBoardSceneId) : [];
-    const entityIssues = msScene?.povCharacterId
-      ? Object.values(consistencyIssues).filter((i) => i.relatedEntityIds.includes(msScene.povCharacterId!) && i.status === 'open')
+    const byBoard = linkedBoardSceneId ? listIssuesByScene(linkedBoardSceneId) : [];
+    const entityIssues = povCharacterId
+      ? Object.values(consistencyIssues).filter((i) => i.relatedEntityIds.includes(povCharacterId) && i.status === 'open')
       : [];
     const map = new Map<string, typeof byMs[number]>();
     for (const i of [...byMs, ...byBoard, ...entityIssues]) map.set(i.id, i);
     return Array.from(map.values());
-  }, [sceneId, msScene, consistencyIssues, listIssuesByScene]);
+  }, [sceneId, linkedBoardSceneId, povCharacterId, consistencyIssues, listIssuesByScene]);
 
   // 제안 승인 → 위키 자동 등록
   const handleAccept = (proposal: ExtractedProposal) => {
