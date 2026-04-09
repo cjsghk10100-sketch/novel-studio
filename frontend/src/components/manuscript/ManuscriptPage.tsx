@@ -4,7 +4,7 @@ import { ManuscriptSidebar } from "./ManuscriptSidebar";
 import { ManuscriptEditor } from "./ManuscriptEditor";
 import { ManuscriptContextPanel } from "./ManuscriptContextPanel";
 import { EntityMentionDialog } from "./EntityMentionDialog";
-import { AgentAnalysisDialog } from "./AgentAnalysisDialog";
+import type { EntityType } from "@/lib/novel-types";
 
 export function ManuscriptPage() {
   const books = useNovelStore((s) => s.books);
@@ -12,11 +12,17 @@ export function ManuscriptPage() {
   const updateManuscriptChapter = useNovelStore((s) => s.updateManuscriptChapter);
   const addTextEntityReference = useNovelStore((s) => s.addTextEntityReference);
 
+  // 위키 등록 액션
+  const addCharacter = useNovelStore((s) => s.addCharacter);
+  const addLocation = useNovelStore((s) => s.addLocation);
+  const addFaction = useNovelStore((s) => s.addFaction);
+  const addItem = useNovelStore((s) => s.addItem);
+  const addEvent = useNovelStore((s) => s.addEvent);
+
   const [selectedBookId, setSelectedBookId] = useState<string | null>(null);
   const [selectedChapterId, setSelectedChapterId] = useState<string | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [entityMentionOpen, setEntityMentionOpen] = useState(false);
-  const [agentDialogOpen, setAgentDialogOpen] = useState(false);
 
   // Auto-select first book on mount
   useEffect(() => {
@@ -41,12 +47,48 @@ export function ManuscriptPage() {
       });
       addTextEntityReference({
         manuscriptSceneId: selectedChapterId,
-        entityType: entityType as "character" | "location" | "faction" | "item" | "event",
+        entityType: entityType as EntityType,
         entityId,
       });
       setEntityMentionOpen(false);
     },
     [selectedChapterId, manuscriptChapters, updateManuscriptChapter, addTextEntityReference],
+  );
+
+  // 빠른 위키 등록 핸들러: 선택한 텍스트를 위키 엔티티로 바로 등록
+  const handleQuickRegister = useCallback(
+    (selectedText: string, entityType: EntityType) => {
+      if (!selectedChapterId || !selectedText.trim()) return;
+
+      let entityId = "";
+      switch (entityType) {
+        case "character":
+          entityId = addCharacter({ name: selectedText, age: null, birthYear: null, deathYear: null, role: "미정", traits: [], notes: "" });
+          break;
+        case "location":
+          entityId = addLocation({ name: selectedText, type: "미정", description: "" });
+          break;
+        case "faction":
+          entityId = addFaction({ name: selectedText, ideology: "", description: "" });
+          break;
+        case "item":
+          entityId = addItem({ name: selectedText, category: "미정", description: "" });
+          break;
+        case "event":
+          entityId = addEvent({ title: selectedText, timelineIndex: 0, summary: "" });
+          break;
+      }
+
+      // 위키 등록 후 자동으로 텍스트 엔티티 참조도 생성
+      if (entityId) {
+        addTextEntityReference({
+          manuscriptSceneId: selectedChapterId,
+          entityType,
+          entityId,
+        });
+      }
+    },
+    [selectedChapterId, addCharacter, addLocation, addFaction, addItem, addEvent, addTextEntityReference],
   );
 
   return (
@@ -72,7 +114,7 @@ export function ManuscriptPage() {
           isFullscreen={isFullscreen}
           onToggleFullscreen={() => setIsFullscreen((f) => !f)}
           onOpenEntityMention={() => setEntityMentionOpen(true)}
-          onOpenAgentDialog={() => setAgentDialogOpen(true)}
+          onQuickRegister={handleQuickRegister}
         />
       </div>
 
@@ -88,13 +130,6 @@ export function ManuscriptPage() {
         open={entityMentionOpen}
         onClose={() => setEntityMentionOpen(false)}
         onSelect={handleEntityMention}
-      />
-
-      {/* Agent analysis dialog */}
-      <AgentAnalysisDialog
-        open={agentDialogOpen}
-        onClose={() => setAgentDialogOpen(false)}
-        chapterId={selectedChapterId}
       />
     </div>
   );
