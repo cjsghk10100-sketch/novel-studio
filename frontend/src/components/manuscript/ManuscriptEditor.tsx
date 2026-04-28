@@ -54,6 +54,7 @@ export function ManuscriptEditor({
   const updateManuscriptChapter = useNovelStore((s) => s.updateManuscriptChapter);
   const addTextEntityReference = useNovelStore((s) => s.addTextEntityReference);
   const getReferencesForScene = useNovelStore((s) => s.getReferencesForScene);
+  const syncManuscriptToBoard = useNovelStore((s) => s.syncManuscriptToBoard);
 
   // Entity index for auto-link
   const characters = useNovelStore((s) => s.characters);
@@ -87,7 +88,7 @@ export function ManuscriptEditor({
     }
   }, [chapterId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // 자동 링크 실행
+  // 자동 링크 실행 + 보드 동기화
   const runAutoLink = useCallback((text: string) => {
     if (!chapterId) return;
     const entityIndex: EntityIndex = { characters, locations, factions, items, events };
@@ -101,7 +102,11 @@ export function ManuscriptEditor({
         entityId: ref.entityId,
       });
     }
-  }, [chapterId, characters, locations, factions, items, events, getReferencesForScene, addTextEntityReference]);
+    // 새 참조가 추가되었으면 보드 장면에도 동기화
+    if (result.newRefs.length > 0) {
+      syncManuscriptToBoard(chapterId);
+    }
+  }, [chapterId, characters, locations, factions, items, events, getReferencesForScene, addTextEntityReference, syncManuscriptToBoard]);
 
   const saveContent = useCallback((text: string) => {
     if (!chapterId) return;

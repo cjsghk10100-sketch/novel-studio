@@ -6,6 +6,7 @@ import { useConsistencyStore } from "@/lib/consistency-store";
 import { characterTimelineRules } from "@/lib/consistency-rules-character";
 import { relationEventRules } from "@/lib/consistency-rules-relation";
 import { boardThreadProposalRules } from "@/lib/consistency-rules-board";
+import { manuscriptConsistencyRules } from "@/lib/consistency-rules-manuscript";
 import type { ConsistencyIssue as StoredIssue } from "@/lib/consistency-types";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -27,6 +28,7 @@ import {
 for (const r of characterTimelineRules) registerRule(r);
 for (const r of relationEventRules) registerRule(r);
 for (const r of boardThreadProposalRules) registerRule(r);
+for (const r of manuscriptConsistencyRules) registerRule(r);
 
 // Severity styles
 const SEV_DOT: Record<string, string> = {

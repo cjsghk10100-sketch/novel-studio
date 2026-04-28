@@ -157,6 +157,9 @@ export interface NovelActions {
   addExtractedProposal: (data: Omit<ExtractedProposal, 'id' | 'createdAt' | 'updatedAt'>) => string;
   updateExtractedProposal: (id: string, patch: Partial<Omit<ExtractedProposal, 'id' | 'createdAt' | 'updatedAt'>>) => void;
 
+  // Manuscript ↔ Board sync
+  syncManuscriptToBoard: (chapterId: string) => void;
+
   // Manuscript helpers
   getChaptersForBook: (bookId: string) => ManuscriptChapter[];
   getScenesForChapter: (chapterId: string) => ManuscriptScene[];
@@ -866,8 +869,44 @@ export const useNovelStore = create<NovelState & NovelActions>()(
         const content = data.content || '';
         const wordCount = content.replace(/\s/g, '').length;
         const entity: ManuscriptChapter = { ...data, id, content, wordCount, lastEditedAt: ts, createdAt: ts, updatedAt: ts };
+
+        // 자동 보드 장면 생성
+        const boardSceneId = uuidv4();
+        const timelineNum = entity.timelineLabel ? Number(entity.timelineLabel) : 0;
+        const boardScene: Scene = {
+          id: boardSceneId,
+          title: entity.title,
+          chapterNo: entity.sortOrder,
+          actNo: 1,
+          timelineIndex: !isNaN(timelineNum) && timelineNum > 0 ? timelineNum : 0,
+          summary: '',
+          draftText: '',
+          characterIds: [],
+          locationIds: entity.locationId ? [entity.locationId] : [],
+          itemIds: [],
+          povCharacterId: entity.povCharacterId ?? null,
+          goal: '',
+          conflict: '',
+          turn: '',
+          outcome: '',
+          emotionalShiftFrom: '',
+          emotionalShiftTo: '',
+          emotionalShift: '',
+          infoRevealed: '',
+          hookEnd: '',
+          threadIds: [],
+          manuscriptStatus: entity.status,
+          wordCount: 0,
+          createdAt: ts,
+          updatedAt: ts,
+        };
+
+        // 챕터에 보드 장면 연결
+        entity.linkedBoardSceneId = boardSceneId;
+
         set((state) => ({
           manuscriptChapters: { ...state.manuscriptChapters, [id]: entity },
+          scenes: { ...state.scenes, [boardSceneId]: boardScene },
           revisionLogs: appendRevision(state, 'manuscriptChapter', id, 'create', null, entity),
         }));
         return id;
@@ -1096,6 +1135,99 @@ export const useNovelStore = create<NovelState & NovelActions>()(
       getProposalsForScene: (sceneId) => {
         return Object.values(get().extractedProposals)
           .filter((p) => p.manuscriptSceneId === sceneId);
+      },
+
+      // -----------------------------------------------------------------------
+      // Manuscript ↔ Board sync
+      // -----------------------------------------------------------------------
+
+      syncManuscriptToBoard: (chapterId) => {
+        const state = get();
+        const chapter = state.manuscriptChapters[chapterId];
+        if (!chapter) return;
+
+        // 보드 장면이 없으면 자동 생성
+        let boardSceneId = chapter.linkedBoardSceneId;
+        if (!boardSceneId || !state.scenes[boardSceneId]) {
+          const newId = uuidv4();
+          const ts = now();
+          const timelineNum = chapter.timelineLabel ? Number(chapter.timelineLabel) : 0;
+          const boardScene: Scene = {
+            id: newId,
+            title: chapter.title,
+            chapterNo: chapter.sortOrder,
+            actNo: 1,
+            timelineIndex: !isNaN(timelineNum) && timelineNum > 0 ? timelineNum : 0,
+            summary: '',
+            draftText: '',
+            characterIds: [],
+            locationIds: chapter.locationId ? [chapter.locationId] : [],
+            itemIds: [],
+            povCharacterId: chapter.povCharacterId ?? null,
+            goal: '',
+            conflict: '',
+            turn: '',
+            outcome: '',
+            emotionalShiftFrom: '',
+            emotionalShiftTo: '',
+            emotionalShift: '',
+            infoRevealed: '',
+            hookEnd: '',
+            threadIds: [],
+            manuscriptStatus: chapter.status,
+            wordCount: chapter.wordCount,
+            createdAt: ts,
+            updatedAt: ts,
+          };
+          set((s) => ({
+            scenes: { ...s.scenes, [newId]: boardScene },
+            manuscriptChapters: {
+              ...s.manuscriptChapters,
+              [chapterId]: { ...s.manuscriptChapters[chapterId], linkedBoardSceneId: newId, updatedAt: ts },
+            },
+          }));
+          boardSceneId = newId;
+        }
+
+        // 현재 참조들에서 엔티티 ID 수집
+        const refs = Object.values(get().textEntityReferences)
+          .filter((r) => r.manuscriptSceneId === chapterId);
+
+        const characterIds = new Set<string>();
+        const locationIds = new Set<string>();
+        const itemIds = new Set<string>();
+
+        for (const ref of refs) {
+          switch (ref.entityType) {
+            case 'character': characterIds.add(ref.entityId); break;
+            case 'location': locationIds.add(ref.entityId); break;
+            case 'item': itemIds.add(ref.entityId); break;
+          }
+        }
+
+        // 챕터 메타데이터도 추가
+        const ch = get().manuscriptChapters[chapterId];
+        if (ch?.povCharacterId) characterIds.add(ch.povCharacterId);
+        if (ch?.locationId) locationIds.add(ch.locationId);
+
+        // 보드 장면 업데이트
+        const finalBoardSceneId = boardSceneId;
+        set((s) => {
+          const prev = s.scenes[finalBoardSceneId];
+          if (!prev) return s;
+          const updated: Scene = {
+            ...prev,
+            characterIds: [...characterIds],
+            locationIds: [...locationIds],
+            itemIds: [...itemIds],
+            wordCount: ch?.wordCount ?? prev.wordCount,
+            manuscriptStatus: ch?.status ?? prev.manuscriptStatus,
+            updatedAt: now(),
+          };
+          return {
+            scenes: { ...s.scenes, [finalBoardSceneId]: updated },
+          };
+        });
       },
 
       // -----------------------------------------------------------------------
