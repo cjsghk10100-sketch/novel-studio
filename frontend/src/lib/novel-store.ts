@@ -227,6 +227,24 @@ const safeStorage = createJSONStorage(() => {
 });
 
 // ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+/** 특정 엔티티에 연결된 TextEntityReference를 제거한 새 레코드를 반환 */
+function purgeRefsForEntity(
+  refs: Record<string, TextEntityReference>,
+  entityType: EntityType,
+  entityId: string,
+): Record<string, TextEntityReference> {
+  const result: Record<string, TextEntityReference> = {};
+  for (const [k, v] of Object.entries(refs)) {
+    if (v.entityType === entityType && v.entityId === entityId) continue;
+    result[k] = v;
+  }
+  return result;
+}
+
+// ---------------------------------------------------------------------------
 // Store
 // ---------------------------------------------------------------------------
 
@@ -288,6 +306,7 @@ export const useNovelStore = create<NovelState & NovelActions>()(
           const { [id]: _, ...rest } = state.characters;
           return {
             characters: rest,
+            textEntityReferences: purgeRefsForEntity(state.textEntityReferences, 'character', id),
             revisionLogs: appendRevision(state, 'character', id, 'delete', prev, null),
           };
         });
@@ -327,6 +346,7 @@ export const useNovelStore = create<NovelState & NovelActions>()(
           const { [id]: _, ...rest } = state.locations;
           return {
             locations: rest,
+            textEntityReferences: purgeRefsForEntity(state.textEntityReferences, 'location', id),
             revisionLogs: appendRevision(state, 'location', id, 'delete', prev, null),
           };
         });
@@ -366,6 +386,7 @@ export const useNovelStore = create<NovelState & NovelActions>()(
           const { [id]: _, ...rest } = state.factions;
           return {
             factions: rest,
+            textEntityReferences: purgeRefsForEntity(state.textEntityReferences, 'faction', id),
             revisionLogs: appendRevision(state, 'faction', id, 'delete', prev, null),
           };
         });
@@ -405,6 +426,7 @@ export const useNovelStore = create<NovelState & NovelActions>()(
           const { [id]: _, ...rest } = state.items;
           return {
             items: rest,
+            textEntityReferences: purgeRefsForEntity(state.textEntityReferences, 'item', id),
             revisionLogs: appendRevision(state, 'item', id, 'delete', prev, null),
           };
         });
@@ -444,6 +466,7 @@ export const useNovelStore = create<NovelState & NovelActions>()(
           const { [id]: _, ...rest } = state.events;
           return {
             events: rest,
+            textEntityReferences: purgeRefsForEntity(state.textEntityReferences, 'event', id),
             revisionLogs: appendRevision(state, 'event', id, 'delete', prev, null),
           };
         });
@@ -986,6 +1009,14 @@ export const useNovelStore = create<NovelState & NovelActions>()(
       // -----------------------------------------------------------------------
 
       addTextEntityReference: (data) => {
+        // 중복 방지: 동일 scene + entityType + entityId 조합이 이미 있으면 스킵
+        const existing = Object.values(get().textEntityReferences).find(
+          (r) => r.manuscriptSceneId === data.manuscriptSceneId
+            && r.entityType === data.entityType
+            && r.entityId === data.entityId,
+        );
+        if (existing) return existing.id;
+
         const id = uuidv4();
         const ts = now();
         const entity: TextEntityReference = { ...data, id, createdAt: ts };

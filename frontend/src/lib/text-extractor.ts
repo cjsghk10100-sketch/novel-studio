@@ -37,10 +37,6 @@ export interface AutoLinkResult {
 // 위키 엔티티 자동 매칭
 // ---------------------------------------------------------------------------
 
-function escapeRegex(str: string): string {
-  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
 /**
  * 본문에서 위키에 등록된 엔티티 이름을 찾아 자동 링크합니다.
  *

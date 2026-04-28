@@ -71,8 +71,6 @@ export function ManuscriptEditor({
   const [isSaving, setIsSaving] = useState(false);
   const [lastSaved, setLastSaved] = useState<number | null>(null);
   const [selectedText, setSelectedText] = useState("");
-  const [showQuickMenu, setShowQuickMenu] = useState(false);
-  const [quickMenuPos, setQuickMenuPos] = useState({ x: 0, y: 0 });
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
@@ -127,21 +125,30 @@ export function ManuscriptEditor({
     const sel = ta.value.substring(ta.selectionStart, ta.selectionEnd).trim();
     if (sel.length >= 2 && sel.length <= 20 && !sel.includes("\n")) {
       setSelectedText(sel);
-      // 선택 영역 근처에 메뉴 표시
-      const rect = ta.getBoundingClientRect();
-      setQuickMenuPos({ x: rect.left + 80, y: rect.top - 40 });
-      setShowQuickMenu(true);
     } else {
-      setShowQuickMenu(false);
       setSelectedText("");
     }
+  }, []);
+
+  // 에디터 외부 클릭 시 선택 상태 초기화
+  useEffect(() => {
+    const handleGlobalClick = (e: MouseEvent) => {
+      const ta = textareaRef.current;
+      if (ta && !ta.contains(e.target as Node)) {
+        // 빠른 등록 버튼 영역 클릭은 제외
+        const target = e.target as HTMLElement;
+        if (target.closest('[data-quick-register]')) return;
+        setSelectedText("");
+      }
+    };
+    document.addEventListener("mousedown", handleGlobalClick);
+    return () => document.removeEventListener("mousedown", handleGlobalClick);
   }, []);
 
   const handleQuickRegister = useCallback((type: EntityType) => {
     if (selectedText && onQuickRegister) {
       onQuickRegister(selectedText, type);
     }
-    setShowQuickMenu(false);
     setSelectedText("");
   }, [selectedText, onQuickRegister]);
 
@@ -285,7 +292,7 @@ export function ManuscriptEditor({
 
       {/* 선택 텍스트 빠른 등록 알림 바 */}
       {selectedText && onQuickRegister && (
-        <div className="flex items-center gap-2 px-4 py-1.5 bg-tag-blue-10 border-b border-tag-blue-100/20 text-xs">
+        <div data-quick-register className="flex items-center gap-2 px-4 py-1.5 bg-tag-blue-10 border-b border-tag-blue-100/20 text-xs">
           <span className="text-tag-blue-100">
             "{selectedText}" 선택됨 — 위키에 등록하려면:
           </span>

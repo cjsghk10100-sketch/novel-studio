@@ -19,6 +19,13 @@ export function ManuscriptPage() {
   const addItem = useNovelStore((s) => s.addItem);
   const addEvent = useNovelStore((s) => s.addEvent);
 
+  // 중복 등록 방지를 위한 위키 엔티티 접근
+  const characters = useNovelStore((s) => s.characters);
+  const locations = useNovelStore((s) => s.locations);
+  const factions = useNovelStore((s) => s.factions);
+  const items = useNovelStore((s) => s.items);
+  const events = useNovelStore((s) => s.events);
+
   const [selectedBookId, setSelectedBookId] = useState<string | null>(null);
   const [selectedChapterId, setSelectedChapterId] = useState<string | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -59,27 +66,51 @@ export function ManuscriptPage() {
   const handleQuickRegister = useCallback(
     (selectedText: string, entityType: EntityType) => {
       if (!selectedChapterId || !selectedText.trim()) return;
+      const name = selectedText.trim();
 
-      let entityId = "";
+      // 1. 이미 같은 이름의 엔티티가 있는지 확인
+      let existingId: string | null = null;
       switch (entityType) {
         case "character":
-          entityId = addCharacter({ name: selectedText, age: null, birthYear: null, deathYear: null, role: "미정", traits: [], notes: "" });
+          existingId = Object.values(characters).find((c) => c.name === name)?.id ?? null;
           break;
         case "location":
-          entityId = addLocation({ name: selectedText, type: "미정", description: "" });
+          existingId = Object.values(locations).find((l) => l.name === name)?.id ?? null;
           break;
         case "faction":
-          entityId = addFaction({ name: selectedText, ideology: "", description: "" });
+          existingId = Object.values(factions).find((f) => f.name === name)?.id ?? null;
           break;
         case "item":
-          entityId = addItem({ name: selectedText, category: "미정", description: "" });
+          existingId = Object.values(items).find((i) => i.name === name)?.id ?? null;
           break;
         case "event":
-          entityId = addEvent({ title: selectedText, timelineIndex: 0, summary: "" });
+          existingId = Object.values(events).find((e) => e.title === name)?.id ?? null;
           break;
       }
 
-      // 위키 등록 후 자동으로 텍스트 엔티티 참조도 생성
+      // 2. 없으면 새로 생성, 있으면 기존 ID 사용
+      let entityId = existingId ?? "";
+      if (!existingId) {
+        switch (entityType) {
+          case "character":
+            entityId = addCharacter({ name, age: null, birthYear: null, deathYear: null, role: "미정", traits: [], notes: "" });
+            break;
+          case "location":
+            entityId = addLocation({ name, type: "미정", description: "" });
+            break;
+          case "faction":
+            entityId = addFaction({ name, ideology: "", description: "" });
+            break;
+          case "item":
+            entityId = addItem({ name, category: "미정", description: "" });
+            break;
+          case "event":
+            entityId = addEvent({ title: name, timelineIndex: 0, summary: "" });
+            break;
+        }
+      }
+
+      // 3. 텍스트 엔티티 참조 생성 (스토어에서 중복 방지)
       if (entityId) {
         addTextEntityReference({
           manuscriptSceneId: selectedChapterId,
@@ -88,7 +119,7 @@ export function ManuscriptPage() {
         });
       }
     },
-    [selectedChapterId, addCharacter, addLocation, addFaction, addItem, addEvent, addTextEntityReference],
+    [selectedChapterId, characters, locations, factions, items, events, addCharacter, addLocation, addFaction, addItem, addEvent, addTextEntityReference],
   );
 
   return (
